@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1017" />
+    <meta name="description" content="Scan or paint your Rubik's cube and get a short solution." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23111'/><rect x='4' y='4' width='7' height='7' rx='1.5' fill='%23f4f4ef'/><rect x='12.5' y='4' width='7' height='7' rx='1.5' fill='%23d5202f'/><rect x='21' y='4' width='7' height='7' rx='1.5' fill='%2310a556'/><rect x='4' y='12.5' width='7' height='7' rx='1.5' fill='%23ffd60a'/><rect x='12.5' y='12.5' width='7' height='7' rx='1.5' fill='%231c5fd6'/><rect x='21' y='12.5' width='7' height='7' rx='1.5' fill='%23ff7a1a'/><rect x='4' y='21' width='7' height='7' rx='1.5' fill='%2310a556'/><rect x='12.5' y='21' width='7' height='7' rx='1.5' fill='%23f4f4ef'/><rect x='21' y='21' width='7' height='7' rx='1.5' fill='%23d5202f'/></svg>" />
+    <title>Cube Solver</title>
+  </head>
+  <body>
+    <div id="app">
+      <main id="stage">
+        <p id="hint"></p>
+        <button id="btn-view" class="btn small" type="button" title="White on top, green in front">Reset view</button>
+      </main>
+
+      <aside id="panel">
+        <header>
+          <h1>Cube Solver</h1>
+          <nav class="tabs" aria-label="Mode">
+            <button type="button" data-tab="solve">Solve a cube</button>
+            <button type="button" data-tab="train">Practise last layer</button>
+          </nav>
+        </header>
+
+        <div id="solve-ui">
+        <p class="small-text">Enter your cube, press Solve, follow the moves.</p>
+
+        <section class="row">
+          <button id="btn-scan" class="btn" type="button">Scan with camera</button>
+          <button id="btn-paint" class="btn" type="button">Paint colours</button>
+        </section>
+
+        <section id="paint-tools" hidden>
+          <p class="small-text">Pick a colour, then tap stickers on the cube or on the map below. Centres are fixed.</p>
+          <div id="palette"></div>
+          <button id="btn-blank" class="btn small" type="button">Blank all stickers</button>
+        </section>
+
+        <section id="net" aria-label="Unfolded cube"></section>
+        <section id="messages" aria-live="polite"></section>
+
+        <button id="btn-solve" class="btn primary big" type="button" disabled>Preparing solver…</button>
+        <section id="solution" hidden></section>
+
+        <section class="row three">
+          <button id="btn-scramble" class="btn" type="button">Scramble</button>
+          <button id="btn-undo" class="btn" type="button">Undo</button>
+          <button id="btn-reset" class="btn" type="button">Reset</button>
+        </section>
+
+        <details>
+          <summary>Turn buttons &amp; keys</summary>
+          <div id="movepad"></div>
+          <p class="small-text">Keyboard: U D L R F B turn a face, Shift for anticlockwise. ← → step through a solution.</p>
+        </details>
+        </div>
+
+        <div id="trainer" hidden></div>
+      </aside>
+    </div>
+
+    <div id="scan" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
