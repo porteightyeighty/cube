@@ -27,10 +27,12 @@
         <div id="solve-ui">
         <p class="small-text">Enter your cube, press Solve, follow the moves.</p>
 
-        <section class="row">
+        <section class="row three" id="entry">
           <button id="btn-scan" class="btn" type="button">Scan with camera</button>
+          <button id="btn-phone" class="btn" type="button">Scan with phone</button>
           <button id="btn-paint" class="btn" type="button">Paint colours</button>
         </section>
+        <section id="pair-bar" hidden></section>
 
         <section id="paint-tools" hidden>
           <p class="small-text">Pick a colour, then tap stickers on the cube or on the map below. Centres are fixed.</p>
@@ -62,6 +64,7 @@
     </div>
 
     <div id="scan" hidden></div>
+    <div id="pair" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

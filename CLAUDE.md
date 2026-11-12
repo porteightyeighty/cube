@@ -7,10 +7,11 @@ Browser-only Rubik's cube solver: the user enters a cube (camera scan or paintin
 ## Commands
 
 - `npm run dev` — Vite dev server (`--host`, so it's reachable from a phone on the LAN; camera access needs https or localhost)
+- `npm run dev:https` — same with a self-signed certificate (accept the warning on the phone), so a phone on the LAN can use its camera
 - `npm run build` — `tsc --noEmit` type check, then `vite build` into `dist/`. This is the only type-check/lint step.
 - `npm test` — Vitest, all tests once
 - Single file / single test: `npx vitest run tests/model.test.ts`, `npx vitest run -t "solves 20"`
-- `npm start` — serves `dist/` with `serve` on `$PORT` (default 3000), for deployment
+- `npm start` — `server/index.js`: serves `dist/` plus the phone hand-off relay on `$PORT` (default 3000), for deployment. Needs a long-running Node host; plain static hosting loses the hand-off.
 
 tsconfig has `noUnusedLocals`/`noUnusedParameters` on, so unused code fails the build.
 
@@ -27,6 +28,8 @@ tsconfig has `noUnusedLocals`/`noUnusedParameters` on, so unused code fails the 
 **3D view** (`src/view/`): the 26 cubies always sit in their home slots; colours come from the state string. `Animator` animates a turn by reparenting one layer's cubies onto a pivot group, then at the end snaps them home and recolours from the new state. It speeds up when moves queue up. `shown` is what's painted, and may lag behind `state` mid-animation.
 
 **Scanning** (`src/scan/`): `flow.ts` is the camera UI state machine, run over a list of shots from `shots.ts`. Each `Shot` lists the facelets it sees and each sticker's outline in 0..1 preview coordinates. The default is two corner-on photos (`CORNER_SHOTS`, white/green/red then yellow/orange/blue), projected from `GEOM`, which together see all 54 stickers. The fallback is six face-by-face shots (`FACE_SHOTS`: F R B L U D, each with a required top face). On capture, `snap.ts` searches shift/scale/rotation of the whole outline to fit the cube actually in the photo (bright, even sticker middles; dark borders) before sampling. `detect.ts` is pure, DOM-free colour logic (tested with simulated lighting/noise in `tests/detect.test.ts`). It uses a lightness-normalised Lab distance (`colorDist`, to keep red and orange apart under uneven light), calibrates against each scanned face's own centre, and `classifyBalanced` greedily assigns colours so there are exactly 9 of each, keeping cells the user fixed by hand.
+
+**Phone hand-off** (`src/pair.ts`, `server/pair.js`): "Scan with phone" on the laptop (`PhoneLink`) makes a random session id, shows a QR code for `?pair=<id>` (swapping `localhost` for the machine's LAN IP), and listens on an event stream. The phone (`LaptopLink`, active when the page has `?pair=`) opens the scanner straight away and posts each finished scan; the laptop applies it with `replaceState`. `server/pair.js` is a dependency-free in-memory relay (`handlePair`), mounted both by the Vite dev server (plugin in `vite.config.ts`) and by `server/index.js`. Reconnecting streams replay the latest scan, so the laptop skips `seq` numbers it has already applied.
 
 **UI** (`src/ui/`): small DOM classes (net map, palette, solution stepper, move pad and key bindings) wired by callbacks in `main.ts`. Colour scheme (white U, green F, red R) lives in `src/colors.ts`.
 

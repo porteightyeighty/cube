@@ -14,6 +14,7 @@ import { Palette } from './ui/palette';
 import { SolutionView, type Solution } from './ui/solution';
 import { bindKeys, buildMovePad } from './ui/controls';
 import { Trainer } from './trainer/panel';
+import { LaptopLink, PhoneLink, dropPairParam, pairedId } from './pair';
 
 const STORE_KEY = 'cube-solver-state';
 const TAB_KEY = 'cube-tab';
@@ -49,6 +50,19 @@ const palette = new Palette($('palette'));
 const solutionView = new SolutionView($('solution'), (k) => gotoStep(k));
 const scanner = new Scanner($('scan'), onScanned, () => setPainting(true));
 const solver = new SolverClient();
+// Phone hand-off: on the laptop, a link that receives the phone's scans; on a
+// phone opened from the laptop's QR code, a link that sends them.
+const phoneLink = new PhoneLink($('pair'), (s) => {
+  setTraining(false);
+  painting = true;
+  stage.resetView();
+  replaceState(s, validate(s).ok
+    ? 'Scan received from your phone. Compare it with your cube, then press Solve.'
+    : 'Scan received from your phone, but it needs fixing — see above.');
+});
+let laptopLink: LaptopLink | null = (() => { const id = pairedId(); return id ? new LaptopLink(id) : null; })();
+phoneLink.onChange = () => refresh();
+if (laptopLink) laptopLink.onChange = () => refresh();
 const trainer = new Trainer($('trainer'), {
   show(s) {
     animator.onTurnDone = null;
@@ -116,8 +130,54 @@ function refresh() {
     loading: 'Preparing solver…', ready: 'Solve', solving: 'Solving…', failed: 'Solver failed to load',
   }[solverState];
   $<HTMLButtonElement>('btn-undo').disabled = history.length === 0;
+  renderPairBar();
 
   try { localStorage.setItem(STORE_KEY, state); } catch { /* ignore */ }
+}
+
+function renderPairBar() {
+  const bar = $('pair-bar');
+  const button = (label: string, onclick: () => void) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn small';
+    b.textContent = label;
+    b.onclick = onclick;
+    return b;
+  };
+  const line = (text: string, cls = '') => {
+    const p = document.createElement('p');
+    p.textContent = text;
+    p.className = cls;
+    return p;
+  };
+  $('btn-phone').hidden = !!laptopLink;
+  $('entry').classList.toggle('two', !!laptopLink);
+  if (laptopLink) {
+    const { status } = laptopLink;
+    const unlink = () => { laptopLink = null; dropPairParam(); refresh(); };
+    bar.replaceChildren(
+      status === 'sent' ? line('Sent to your laptop ✓ — carry on there.', 'ok')
+        : status === 'failed' ? line('Couldn\'t reach your laptop. Check both are online, then send again.', 'bad')
+          : status === 'sending' ? line('Sending to your laptop…')
+            : line('Linked to your laptop: scan the cube and it\'ll appear there.'),
+      button('Send again', () => void laptopLink?.send(state)),
+      button('Unlink', unlink),
+    );
+    (bar.children[1] as HTMLElement).hidden = status === 'idle' || status === 'sending' || state.includes(BLANK);
+    bar.hidden = false;
+  } else if (phoneLink.status === 'joined' || phoneLink.status === 'linked') {
+    bar.replaceChildren(
+      line(phoneLink.status === 'linked'
+        ? 'Phone linked: new scans from it will replace this cube.'
+        : 'Phone connected: waiting for its scan…'),
+      button('Show code', () => phoneLink.show()),
+      button('Unlink', () => phoneLink.unlink()),
+    );
+    bar.hidden = false;
+  } else {
+    bar.hidden = true;
+  }
 }
 
 function fixButton(fix: FaceFix): HTMLElement {
@@ -185,6 +245,7 @@ function setPainting(on: boolean) {
 }
 
 function onScanned(scanned: string) {
+  void laptopLink?.send(scanned);
   painting = true;
   stage.resetView();
   replaceState(scanned, validate(scanned).ok ? 'Scan complete. Compare it with your cube, then press Solve.' : '');
@@ -248,14 +309,15 @@ attachInteraction({
 });
 buildMovePad($('movepad'), (m) => turn(m));
 bindKeys({
-  onMove: (m) => { if (!scanner.isOpen) turn(m); },
-  onStep: (d) => { if (solution && !scanner.isOpen && !training) gotoStep(solution.cursor + d); },
+  onMove: (m) => { if (!scanner.isOpen && !phoneLink.isOpen) turn(m); },
+  onStep: (d) => { if (solution && !scanner.isOpen && !phoneLink.isOpen && !training) gotoStep(solution.cursor + d); },
 });
 
 document.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => {
   b.onclick = () => setTraining(b.dataset.tab === 'train');
 });
 $('btn-scan').onclick = () => void scanner.open();
+$('btn-phone').onclick = () => void phoneLink.open();
 $('btn-paint').onclick = () => setPainting(!painting);
 $('btn-blank').onclick = () =>
   replaceState(FACES.map((f) => BLANK.repeat(4) + f + BLANK.repeat(4)).join(''));
@@ -274,9 +336,11 @@ $('btn-undo').onclick = () => {
 };
 
 refresh();
+// Opened from the laptop's QR code: go straight to the camera.
+if (laptopLink) void scanner.open();
 // #practise links straight to the trainer (handy as a phone bookmark); otherwise reopen the last tab.
 try {
-  if (location.hash === '#practise' || localStorage.getItem(TAB_KEY) === 'train') setTraining(true);
+  if (!laptopLink && (location.hash === '#practise' || localStorage.getItem(TAB_KEY) === 'train')) setTraining(true);
 } catch { /* ignore */ }
 requestAnimationFrame(function frame(now) {
   animator.update(now);

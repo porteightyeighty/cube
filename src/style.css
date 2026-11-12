@@ -247,3 +247,28 @@ kbd {
   #net { max-width: 280px; }
 }
 .btn.primary kbd { color: #ffffffcc; border-color: #ffffff66; }
+
+/* ---- phone hand-off ---- */
+#entry.two { grid-template-columns: 1fr 1fr; }
+#pair {
+  position: fixed; inset: 0; z-index: 11; background: #06080cd8;
+  display: grid; place-items: center; padding: 16px; overflow-y: auto;
+}
+#pair[hidden], #pair-bar[hidden] { display: none; }
+.pair-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px;
+  width: min(380px, 100%); display: flex; flex-direction: column; gap: 12px; text-align: center;
+}
+.pair-card h2 { font-size: 20px; margin: 0; }
+.pair-qr { background: #fff; border-radius: 12px; padding: 8px; width: min(260px, 100%); aspect-ratio: 1; margin: 0 auto; }
+.pair-qr:empty { background: #10141c; }
+.pair-qr svg { display: block; width: 100%; height: 100%; }
+.pair-url { color: var(--muted); font-size: 12px; word-break: break-all; }
+.pair-status { font-weight: 600; min-height: 1.45em; }
+#pair-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  background: #10141c; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+}
+#pair-bar p { flex: 1 1 100%; margin: 0; font-size: 14px; }
+#pair-bar p.ok { color: #6be38f; }
+#pair-bar p.bad { color: var(--danger); }
