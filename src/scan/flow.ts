@@ -2,8 +2,9 @@ import { FACES, type Face } from '../model/cube';
 import { validate } from '../model/validate';
 import { COLOR_HEX, COLOR_NAME } from '../colors';
 import { Camera } from './camera';
-import { DEFAULT_REFS, classifyBalanced, nearest, toFacelets, type RGB } from './detect';
+import { DEFAULT_REFS, classifyBalanced, nearest, samplePolys, toFacelets, type Poly, type RGB } from './detect';
 import { CORNER_SHOTS, FACE_SHOTS, type Shot } from './shots';
+import { applyFit, snapFit } from './snap';
 
 type Mode = 'corner' | 'face';
 const MODE_KEY = 'cube.scanMode';
@@ -149,16 +150,19 @@ export class Scanner {
     this.render();
   }
 
-  /** One polygon (plus a live-preview dot) per sticker in the current shot. */
-  private buildGrid() {
-    this.grid.replaceChildren(...this.shot.cells.flatMap((c, i) => {
+  /**
+   * One polygon (plus a live-preview dot) per sticker in the current shot:
+   * the guide outline, or after capture the outline as snapped to the photo.
+   */
+  private buildGrid(polys: Poly[] = this.shot.cells.map((c) => c.poly)) {
+    this.grid.replaceChildren(...polys.flatMap((q, i) => {
       const poly = document.createElementNS(SVG, 'polygon');
-      poly.setAttribute('points', c.poly.map((p) => p.join(',')).join(' '));
+      poly.setAttribute('points', q.map((p) => p.join(',')).join(' '));
       poly.setAttribute('data-i', String(i));
       const dot = document.createElementNS(SVG, 'circle');
-      const n = c.poly.length;
-      dot.setAttribute('cx', String(c.poly.reduce((s, p) => s + p[0], 0) / n));
-      dot.setAttribute('cy', String(c.poly.reduce((s, p) => s + p[1], 0) / n));
+      const n = q.length;
+      dot.setAttribute('cx', String(q.reduce((s, p) => s + p[0], 0) / n));
+      dot.setAttribute('cy', String(q.reduce((s, p) => s + p[1], 0) / n));
       dot.setAttribute('r', this.mode === 'corner' ? '0.014' : '0.03');
       return [poly, dot];
     }));
@@ -205,8 +209,14 @@ export class Scanner {
   }
 
   private capture() {
-    const rgb = this.sample();
-    if (!rgb) return;
+    const frame = this.camera.frame();
+    if (!frame) return;
+    // Nobody holds the cube exactly on the guide: fit the outline to the photo first.
+    const guide = this.shot.cells.map((c) => c.poly);
+    const fit = snapFit(frame.data, frame.size, guide);
+    const snapped = guide.map((q) => q.map((p) => applyFit(fit, p)));
+    const rgb = samplePolys(frame.data, frame.size, snapped);
+    this.buildGrid(snapped);
     const letters = this.classify(rgb);
     this.shot.cells.forEach((c, i) => {
       this.samples[c.facelet] = rgb[i];
@@ -222,6 +232,7 @@ export class Scanner {
   private retake() {
     for (const c of this.shot.cells) this.samples[c.facelet] = this.letters[c.facelet] = this.manual[c.facelet] = null;
     this.phase = 'live';
+    this.buildGrid();
     void this.el.querySelector('video')!.play();
     this.render();
   }

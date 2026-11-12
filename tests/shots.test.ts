@@ -3,6 +3,7 @@ import { FACES, SOLVED, applyMoves, type Face } from '../src/model/cube';
 import { randomScramble } from '../src/model/moves';
 import { DEFAULT_REFS, classifyBalanced, samplePolys, toFacelets, type Poly, type Pt, type RGB } from '../src/scan/detect';
 import { CORNER_SHOTS, FACE_SHOTS, type Shot } from '../src/scan/shots';
+import { applyFit, snapFit, type Fit } from '../src/scan/snap';
 
 let seed = 7;
 const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
@@ -78,4 +79,36 @@ describe('2-photo corner scan', () => {
       expect(toFacelets(classifyBalanced(byFace))).toBe(state);
     }
   });
+});
+
+describe('outline snapping', () => {
+  for (const [name, shots] of [['corner', CORNER_SHOTS], ['face', FACE_SHOTS]] as const) {
+    it(`recovers ${name} scans held well off the guide`, () => {
+      const size = 240;
+      let worst = 0;
+      for (let n = 0; n < 4; n++) {
+        const state = applyMoves(SOLVED, randomScramble(25, rnd));
+        const samples: RGB[] = Array(54);
+        for (const shot of shots) {
+          const truth: Fit = {
+            k: 0.85 + 0.3 * rnd(), rot: (rnd() - 0.5) * 14 * Math.PI / 180,
+            dx: (rnd() - 0.5) * 0.1, dy: (rnd() - 0.5) * 0.1,
+          };
+          const img = photograph(state, shot, size, (p) => applyFit(truth, p));
+          const polys = shot.cells.map((c) => c.poly);
+          const fit = snapFit(img, size, polys);
+          for (const c of shot.cells) for (const p of c.poly) {
+            const [ax, ay] = applyFit(fit, p); const [bx, by] = applyFit(truth, p);
+            worst = Math.max(worst, Math.hypot(ax - bx, ay - by));
+          }
+          samplePolys(img, size, polys.map((q) => q.map((p) => applyFit(fit, p))))
+            .forEach((rgb, i) => { samples[shot.cells[i].facelet] = rgb; });
+        }
+        const byFace = Object.fromEntries(FACES.map((f, fi) => [f, samples.slice(fi * 9, fi * 9 + 9)])) as Record<Face, RGB[]>;
+        expect(toFacelets(classifyBalanced(byFace))).toBe(state);
+      }
+      // Every outline corner lands within ~2% of the preview of where the cube really is.
+      expect(worst).toBeLessThan(0.02);
+    }, 30000);
+  }
 });
